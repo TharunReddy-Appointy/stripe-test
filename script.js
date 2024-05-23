@@ -1,4 +1,4 @@
-var stripe = Stripe('pk_test_51L2pmSSAAtniLL2YKyvdcY7ofjGiuMFcXP8389AfB57aaUORpYEyaE8coMi8QLFAfcHcvHI5xPO41e2XN9aeXsy000q90zxlSX');
+var stripe = Stripe('YOUR_PUBSLISHABLE_KEY');
 
 // Create an instance of Elements
 var elements = stripe.elements();
