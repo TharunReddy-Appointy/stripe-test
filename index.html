@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription Payment</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        h2 {
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        #card-element {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        #card-errors {
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: #fff;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+
+</head>
+<body>
+<div class="container">
+    <h2>Subscription Payment</h2>
+    <form id="payment-form">
+        <div id="payment-element">
+            <!-- Elements will create form elements here -->
+        </div>
+        <div class="form-group">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" required>
+        </div>
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required>
+        </div>
+        <div class="form-group">
+            <label for="card-element">Credit or debit card</label>
+            <div id="card-element">
+                <!-- A Stripe Element will be inserted here. -->
+            </div>
+
+            <!-- Used to display form errors. -->
+            <div id="card-errors" role="alert"></div>
+        </div>
+        <button id="submit">Subscribe</button>
+    </form>
+</div>
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+    var stripe = Stripe('pk_test_51L2pmSSAAtniLL2YKyvdcY7ofjGiuMFcXP8389AfB57aaUORpYEyaE8coMi8QLFAfcHcvHI5xPO41e2XN9aeXsy000q90zxlSX');
+
+    // Create an instance of Elements
+    var elements = stripe.elements();
+
+    // Custom styling can be passed to options when creating an Element
+    var style = {
+        base: {
+            // Add your base input styles here. For example:
+            fontSize: '16px',
+            color: '#32325d',
+        },
+    };
+
+    // Create an instance of the card Element
+    var card = elements.create('card', { style: style });
+
+    // Add an instance of the card Element into the `card-element` div
+    card.mount('#card-element');
+
+    // Handle form submission
+    var form = document.getElementById('payment-form');
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        // Disable the submit button to prevent multiple submissions
+        document.getElementById('submit').disabled = true;
+
+        // Fetch customer creation endpoint
+        fetch('/create-customer', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                // postal_code: document.getElementById('postal_code').value,
+            }),
+        })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(function (data) {
+                // Fetch setup intent creation endpoint
+                return fetch('/create-setup-intent', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        customer_id: data.customer_id,
+                    }),
+                });
+            })
+            .then(function (response) {
+                console.log(response)
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(function (data) {
+                // Handle successful setup intent creation
+                console.log(data)
+                console.log('Setup Intent created:', data.setup_intent_client_secret);
+
+                // Confirm setup intent and subscribe the customer
+                stripe.confirmCardSetup(data.setup_intent_client_secret, {
+                    payment_method: {
+                        card: card
+                    },
+                })
+
+                    .then(function (result) {
+                    if (result.error) {
+                        // Inform the user if there was an error
+                        var errorElement = document.getElementById('error-message');
+                        errorElement.textContent = result.error.message;
+                        errorElement.style.display = 'block';
+                    } else {
+                        console.log(data)
+                        console.log(result)
+                        // Otherwise, proceed with subscription creation
+                        fetch('/create-subscription', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                customer_id: data.customer_id,
+                                payment_method: result.setupIntent.payment_method,
+                                price_id: 'price_1PEPlMSAAtniLL2YZQOlROht', // Replace with your price ID
+                            }),
+                        }).then(function (response) {
+                            return response.json();
+                        }).then(function (data) {
+                            // Handle the subscription creation response
+                            console.log('Subscription created:', data.subscription_id);
+                            alert('Subscription created successfully!');
+                            // Handle the subscription creation response
+                            // console.log('Subscription created:', data.subscription_id);
+                            console.log('before confirm payment: ', data)
+                            console.log('result: ',result)
+
+
+                            // Confirm the payment
+                            // stripe.confirmPayment({
+                            //     elements: elements,
+                            //     confirmParams: {
+                            //         return_url: "https://google.com",
+                            //     }
+                            // }).then(function (result) {
+                            //     console.log('result:', result)
+                            //     if (result.error) {
+                            //         // Inform the user if there was an error
+                            //         var errorElement = document.getElementById('error-message');
+                            //         errorElement.textContent = result.error.message;
+                            //         errorElement.style.display = 'block';
+                            //         console.log('payment failed')
+                            //     } else {
+                            //         // Payment confirmed successfully
+                            //         alert('Payment confirmed successfully!');
+                            //     }
+                            // }).catch(function (error) {
+                            //     console.error('Error:', error);
+                            // });
+
+                            stripe.confirmCardPayment(data.client_secret, {
+                                payment_method: {
+                                    card: card,
+                                    billing_details: {
+                                        name: document.getElementById('name').value,
+                                        address :{
+                                            postal_code:'12345'
+                                        },
+
+                                    },
+                                },
+
+                            })
+
+                                .then(function(result) {
+                                        console.log('result:', result)
+                                        if (result.error) {
+                                            // Inform the user if there was an error
+                                            var errorElement = document.getElementById('error-message');
+                                            errorElement.textContent = result.error.message;
+                                            errorElement.style.display = 'block';
+                                            console.log('payment failed')
+                                        } else {
+                                            // Payment confirmed successfully
+                                            alert('Payment confirmed successfully!');
+
+                                        }
+                                    }).catch(function (error) {
+                                        console.error('Error:', error);
+                                    });
+                                })
+
+                    }
+                })
+                    .catch(function (error) {
+                        console.error('Error:', error);
+
+                        // Enable the submit button
+                        document.getElementById('submit').disabled = false;
+                    });
+            });
+    })
+
+        // paste ------
+    // });
+
+            // .then(function(data) {
+            //     // Create payment method with mandate options
+            //     stripe.createPaymentMethod({
+            //         type: 'card',
+            //         card: card,
+            //         billing_details: {
+            //             name: document.getElementById('name').value,
+            //             email: document.getElementById('email').value,
+            //         },
+            //     }).then(function(result) {
+            //         if (result.error) {
+            //             // Inform the user if there was an error
+            //             var errorElement = document.getElementById('card-errors');
+            //             errorElement.textContent = result.error.message;
+            //
+            //             // Enable the submit button
+            //             document.getElementById('submit').disabled = false;
+            //         } else {
+            //             console.log(data)
+            //             // Otherwise, proceed with subscription creation
+            //             fetch('/create-subscription', {
+            //                 method: 'POST',
+            //                 headers: {
+            //                     'Content-Type': 'application/json',
+            //                 },
+            //                 body: JSON.stringify({
+            //                     customer_id: data.customer_id,
+            //                     payment_method: result.paymentMethod.id,
+            //                     price_id: 'price_1P8dTcSAAtniLL2Y8NHoPc1r', // Replace with your price ID
+            //                 }),
+            //             }).then(function(response) {
+            //                 return response.json();
+            //             }).then(function(data) {
+            //                 // Handle the subscription creation response
+            //                 console.log(data);
+            //             }).catch(function(error) {
+            //                 console.error('Error:', error);
+            //
+            //                 // Enable the submit button
+            //                 document.getElementById('submit').disabled = false;
+            //             });
+            //         }
+            //     });
+            // })
+            // .catch(function(error) {
+            //     console.error('Error:', error);
+            //
+            //     // Enable the submit button
+            //     document.getElementById('submit').disabled = false;
+            // });
+    // });
+</script>
+<!--<script src="script.js"></script>-->
+</body>
+</html>
+
+
