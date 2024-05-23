@@ -10,7 +10,7 @@
 //
 //func main() {
 //	// Set your secret key
-//	stripe.Key = "sk_test_51L2pmSSAAtniLL2Y6tce9PlfWTM0fm3wsFLX2bKu4JC3kQiwFg1JtLDKnAYugCsSKobDmNFzOxrodRcyPagz4TGG007TDO6xlj"
+//	stripe.Key = ""
 //
 //	//Create Setup Intent with Mandate
 //	setupIntent, err := createSetupIntentWithMandate()
@@ -69,7 +69,7 @@
 //func createPaymentIntentWithMandate() (*stripe.PaymentIntent, error) {
 //	//params := // Set your secret key. Remember to switch to your live secret key in production.
 //	// See your keys here: https://dashboard.stripe.com/apikeys
-//	stripe.Key = "sk_test_51L2pmSSAAtniLL2Y6tce9PlfWTM0fm3wsFLX2bKu4JC3kQiwFg1JtLDKnAYugCsSKobDmNFzOxrodRcyPagz4TGG007TDO6xlj"
+//	stripe.Key = "Your_secret_key"
 //
 //	params := &stripe.PaymentIntentParams{
 //		Amount:             stripe.Int64(2000000),
